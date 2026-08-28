@@ -1,2 +1,3 @@
 .pio/
 burner/build/
+.DS_Store
