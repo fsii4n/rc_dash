@@ -11,6 +11,7 @@
 //   - current lap time . equal billing with the delta
 //   - prev/best row
 //   - status ........... lap number / connection state
+//   - lock ............. touch-lock indicator (BOOT key toggles)
 #include "ui.h"
 
 #include "data_hub.h"
@@ -23,13 +24,15 @@ extern const UiPlugin kPluginSpeed;
 extern const UiPlugin kPluginLaps;
 extern const UiPlugin kPluginStatus;
 extern const UiPlugin kPluginBattery;
+extern const UiPlugin kPluginLock;
 extern const UiPlugin kPluginMenu;
 
 // kPluginMenu must stay last: its pull-down panel is created after every
 // other plugin's objects so it renders on top of them.
 static const UiPlugin *const kPlugins[] = {
-    &kPluginTrendRing, &kPluginDelta,  &kPluginLapTime, &kPluginSpeed,
-    &kPluginLaps,      &kPluginStatus, &kPluginBattery, &kPluginMenu,
+    &kPluginTrendRing, &kPluginDelta,   &kPluginLapTime,
+    &kPluginSpeed,     &kPluginLaps,    &kPluginStatus,
+    &kPluginBattery,   &kPluginLock,    &kPluginMenu,
 };
 
 void uiCreate() {

@@ -15,6 +15,12 @@
 #define LCD_WIDTH 466
 #define LCD_HEIGHT 466
 
+// Buttons. Key1 = BOOT key at the 5 o'clock position: schematic net GPIO0
+// connects Key1 (other side GND), R7 10K pull-up to VCC3V3, C14 100nF and
+// ESP32-S3 pin 5 (GPIO0) — active low, external RC debounce on board.
+// Key2 = PWR key (1 o'clock) goes to the AXP2101 PWRON pin, not a GPIO.
+#define KEY_BOOT 0
+
 // CST9217 touch + shared I2C bus (AXP2101 PMIC, QMI8658 IMU)
 #define IIC_SDA 15
 #define IIC_SCL 14
