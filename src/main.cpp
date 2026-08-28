@@ -9,6 +9,7 @@
 #include <lvgl.h>
 
 #include "data_hub.h"
+#include "display_ctl.h"
 #include "pin_config.h"
 #include "power_mon.h"
 #include "rc_monitor.h"
@@ -23,6 +24,14 @@ static Arduino_CO5300 *gfx = new Arduino_CO5300(
 
 static lv_disp_draw_buf_t sDrawBuf;
 static SemaphoreHandle_t sLvglMutex;
+static uint8_t sBrightness = 200;
+
+void displaySetBrightness(uint8_t value) {
+  sBrightness = value;
+  gfx->setBrightness(value);
+}
+
+uint8_t displayGetBrightness() { return sBrightness; }
 
 static void dispFlush(lv_disp_drv_t *disp, const lv_area_t *area,
                       lv_color_t *pixels) {
@@ -86,7 +95,7 @@ void setup() {
     Serial.println("[main] gfx->begin() failed!");
   }
   gfx->fillScreen(RGB565_BLACK);
-  gfx->setBrightness(200);
+  gfx->setBrightness(sBrightness);
 
   lv_init();
 

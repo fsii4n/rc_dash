@@ -5,6 +5,10 @@
 
 static portMUX_TYPE sLock = portMUX_INITIALIZER_UNLOCKED;
 static DashModel sModel;
+static volatile bool sTouchLocked = false;
+
+void dataHubSetTouchLocked(bool locked) { sTouchLocked = locked; }
+bool dataHubGetTouchLocked() { return sTouchLocked; }
 
 // ---- delta trend (derivative of the live delta) ----------------------------
 
@@ -59,6 +63,7 @@ static void dataTask(void *arg) {
     sModel.trend = trend;
     sModel.state = snap.state;
     sModel.power = power;
+    sModel.touchLocked = sTouchLocked;
     portEXIT_CRITICAL(&sLock);
 
     vTaskDelay(pdMS_TO_TICKS(50));

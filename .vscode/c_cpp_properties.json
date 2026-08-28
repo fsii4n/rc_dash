@@ -876,6 +876,7 @@
                 "LV_CONF_INCLUDE_SIMPLE",
                 "CORE_DEBUG_LEVEL=2",
                 "XPOWERS_CHIP_AXP2101",
+                "ESP32QSPI_MAX_PIXELS_AT_ONCE=8192",
                 "CJSON_CIRCULAR_LIMIT=10000",
                 "CJSON_NESTING_LIMIT=1000",
                 "ESP32_ARDUINO_LIB_BUILDER",

@@ -24,4 +24,5 @@ struct DashModel {
   DeltaTrend trend;
   RcState state;
   PowerStatus power;
+  bool touchLocked;  // physical lock button: UI ignores touch while set
 };
