@@ -89,7 +89,8 @@ public class MainActivity extends Activity {
     private int lapNumber = 1;
     private int prevLapDeci = 0x7fffffff;
     private int bestLapDeci = 0x7fffffff;
-    private long lapDurationMs = 83500; // first simulated lap: 1:23.5
+    private long lapDurationMs = 19500; // first simulated lap: 19.5s (kart-ish)
+    private int deltaCs = 0;            // simulated delta, centiseconds
 
     // ---- UI -----------------------------------------------------------------
 
@@ -107,7 +108,7 @@ public class MainActivity extends Activity {
         statusView.setTextColor(Color.WHITE);
         statusView.setTextSize(18);
         statusView.setTypeface(Typeface.DEFAULT_BOLD);
-        statusView.setText("RC Burner — idle");
+        statusView.setText("RC Burner 0.2 — idle");
         root.addView(statusView);
 
         telemetryView = new TextView(this);
@@ -257,7 +258,7 @@ public class MainActivity extends Activity {
         notifyChar = null;
         equations.clear();
         pendingEquation.setLength(0);
-        setStatus("RC Burner — idle");
+        setStatus("RC Burner 0.2 — idle");
         runOnUiThread(() -> actionButton.setText("SCAN + CONNECT"));
     }
 
@@ -383,6 +384,7 @@ public class MainActivity extends Activity {
         lapNumber = 1;
         prevLapDeci = 0x7fffffff;
         bestLapDeci = 0x7fffffff;
+        deltaCs = 0;
         setStatus("Streaming simulated telemetry");
         handler.postDelayed(simTick, SIM_PERIOD_MS);
         log("sim: started");
@@ -405,10 +407,17 @@ public class MainActivity extends Activity {
                 if (prevLapDeci < bestLapDeci) bestLapDeci = prevLapDeci;
                 lapNumber++;
                 lapStartMs = now;
-                lapDurationMs = 80000 + (long) (Math.random() * 8000);
+                lapDurationMs = 18000 + (long) (Math.random() * 4000);
+                deltaCs = 0;
                 log(String.format(Locale.US, "sim: lap %d, last %.1fs",
                         lapNumber, prevLapDeci / 10.0));
             }
+
+            // Delta sim: smooth random walk clamped to ±2s, restarting at 0
+            // on each lap crossing
+            deltaCs += (int) Math.round((Math.random() - 0.5) * 16);
+            if (deltaCs > 200) deltaCs = 200;
+            if (deltaCs < -200) deltaCs = -200;
 
             // Speed: 40..250 km/h sweep, converted to m/s*10
             double phase = (now - simStartMs) / 20000.0 * 2 * Math.PI;
@@ -425,9 +434,7 @@ public class MainActivity extends Activity {
                     // "delta_lap_time" must match before the generic "lap_time"
                     if (eq.contains("delta_lap_time")) {
                         // no comparison lap on the first lap -> invalid
-                        value = lapNumber <= 1 ? 0x7fffffff
-                                : (int) Math.round(
-                                        300 * Math.sin((now - lapStartMs) / 9000.0));
+                        value = lapNumber <= 1 ? 0x7fffffff : deltaCs;
                     }
                     else if (eq.contains("speed")) value = speedRaw;
                     else if (eq.contains("previous_lap_time")) value = prevLapDeci;
