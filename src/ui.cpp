@@ -23,10 +23,13 @@ extern const UiPlugin kPluginSpeed;
 extern const UiPlugin kPluginLaps;
 extern const UiPlugin kPluginStatus;
 extern const UiPlugin kPluginBattery;
+extern const UiPlugin kPluginMenu;
 
+// kPluginMenu must stay last: its pull-down panel is created after every
+// other plugin's objects so it renders on top of them.
 static const UiPlugin *const kPlugins[] = {
     &kPluginTrendRing, &kPluginDelta,  &kPluginLapTime, &kPluginSpeed,
-    &kPluginLaps,      &kPluginStatus, &kPluginBattery,
+    &kPluginLaps,      &kPluginStatus, &kPluginBattery, &kPluginMenu,
 };
 
 void uiCreate() {

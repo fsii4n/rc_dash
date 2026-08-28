@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
+#include "i2c_bus.h"
 #include "pin_config.h"
 // XPOWERS_CHIP_AXP2101 comes from build_flags
 #include <XPowersLib.h>
@@ -21,6 +22,9 @@ static void powerTask(void *arg) {
   for (;;) {
     PowerStatus s;
     s.pmicOk = true;
+    // The CST9217 touch driver reads the same Wire bus from core 1: every
+    // PMIC transaction must hold the shared bus mutex.
+    i2cBusLock();
     s.battConnected = sPmu.isBatteryConnect();
     s.percent = s.battConnected ? sPmu.getBatteryPercent() : -1;
     s.voltageMv = sPmu.getBattVoltage();
@@ -39,6 +43,7 @@ static void powerTask(void *arg) {
       sPmu.shutdown();  // cuts all rails; PWR button press powers back on
     }
     sPmu.clearIrqStatus();
+    i2cBusUnlock();
 
     vTaskDelay(pdMS_TO_TICKS(500));
   }
