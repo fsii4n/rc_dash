@@ -80,3 +80,21 @@ Any RaceChrono channel (OBD, CAN, accelerometer…) can be added the same way.
 
 - RaceChrono DIY BLE protocol: <https://github.com/aollin/racechrono-ble-diy-device>
 - Board examples & pinout: <https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C>
+
+## Test rig: `burner/` Android app
+
+A throwaway Android app that impersonates RaceChrono for bench-testing the
+display without VBOX/RaceChrono/track: it scans for the `RC DIY` peripheral,
+subscribes to the config characteristic, acks the monitor registration, then
+streams simulated telemetry at 10 Hz (speed sweep 40–250 km/h, lap timer with
+rollover, prev/best lap tracking).
+
+Build (offline, no Gradle — uses SDK aapt2/d8/apksigner directly):
+
+```sh
+burner/build.sh
+adb install -r burner/build/rc-burner.apk
+```
+
+Requires Android 8+ (BLE central). Grant the Bluetooth permission on first
+launch, tap SCAN + CONNECT with the board powered on.
