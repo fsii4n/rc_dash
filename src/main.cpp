@@ -8,6 +8,7 @@
 #include <Arduino_GFX_Library.h>
 #include <lvgl.h>
 
+#include "data_hub.h"
 #include "pin_config.h"
 #include "power_mon.h"
 #include "rc_monitor.h"
@@ -27,7 +28,12 @@ static void dispFlush(lv_disp_drv_t *disp, const lv_area_t *area,
                       lv_color_t *pixels) {
   uint32_t w = area->x2 - area->x1 + 1;
   uint32_t h = area->y2 - area->y1 + 1;
-  gfx->draw16bitRGBBitmap(area->x1, area->y1, (uint16_t *)&pixels->full, w, h);
+  // LV_COLOR_16_SWAP=1: LVGL renders big-endian RGB565, so this resolves to
+  // Arduino_TFT::draw16bitBeRGBBitmap -> writeAddrWindow + bus writeBytes,
+  // which DMAs straight out of the LVGL draw buffer (no per-pixel swap, no
+  // bounce buffer copy).
+  gfx->draw16bitBeRGBBitmap(area->x1, area->y1, (uint16_t *)&pixels->full, w,
+                            h);
   lv_disp_flush_ready(disp);
 }
 
@@ -39,27 +45,33 @@ static void dispRounder(lv_disp_drv_t *disp, lv_area_t *area) {
   if (area->y2 % 2 == 0) area->y2++;
 }
 
-// LVGL rendering task, pinned to core 1 (BLE/NimBLE host runs on core 0).
+// LVGL render task, pinned to core 1. Pure consumer: pulls the DashModel
+// the data hub task (core 0) publishes and drives the UI plugins.
 static void lvglTask(void *arg) {
   uint32_t lastUiUpdate = 0;
-  uint32_t lastBattUpdate = 0;
   for (;;) {
     xSemaphoreTake(sLvglMutex, portMAX_DELAY);
     uint32_t now = millis();
     if (now - lastUiUpdate >= 100) {
       lastUiUpdate = now;
-      RcSnapshot snap;
-      rcMonitorGet(snap);
-      uiUpdate(snap);
+      uiTick();
     }
-    if (now - lastBattUpdate >= 1000) {
-      lastBattUpdate = now;
-      PowerStatus power;
-      powerMonGet(power);
-      uiUpdateBattery(power);
-    }
+    uint32_t t0 = millis();
     lv_timer_handler();
+    uint32_t frameMs = millis() - t0;
     xSemaphoreGive(sLvglMutex);
+
+    // Frame-time telemetry: worst render+flush over each 10s window.
+    static uint32_t sMaxFrameMs = 0, sLastReport = 0;
+    if (frameMs > sMaxFrameMs) sMaxFrameMs = frameMs;
+    if (now - sLastReport >= 10000) {
+      if (sLastReport != 0) {
+        Serial.printf("[ui] max frame %lums over last 10s\n",
+                      (unsigned long)sMaxFrameMs);
+      }
+      sLastReport = now;
+      sMaxFrameMs = 0;
+    }
     vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
@@ -102,6 +114,7 @@ void setup() {
   uiCreate();
 
   rcMonitorStart();
+  dataHubStart();
 
   sLvglMutex = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(lvglTask, "lvgl", 8192, nullptr, 4, nullptr, 1);

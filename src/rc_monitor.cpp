@@ -81,13 +81,16 @@ class ServerCallbacks : public NimBLEServerCallbacks {
   }
 };
 
+// Last command result written back by the central; configureMonitors()
+// waits on these so a dropped indication part gets detected and resent.
+static volatile int sLastAckId = -1;
+static volatile int sLastAckResult = -1;
+
 class ConfigCharCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic *chr, NimBLEConnInfo &connInfo) override {
     NimBLEAttValue v = chr->getValue();
     if (v.length() < 2) return;
     switch (v[0]) {
-      case CMD_RESULT_OK:
-        break;
       case CMD_RESULT_PAYLOAD_OUT_OF_SEQUENCE:
         Serial.printf("[rc] monitor %d payload out of sequence\n", v[1]);
         break;
@@ -97,6 +100,8 @@ class ConfigCharCallbacks : public NimBLECharacteristicCallbacks {
       default:
         break;
     }
+    sLastAckResult = v[0];
+    sLastAckId = v[1];
   }
 };
 
@@ -106,6 +111,13 @@ class NotifyCharCallbacks : public NimBLECharacteristicCallbacks {
     const uint8_t *d = v.data();
     size_t len = v.length();
     uint32_t now = millis();
+    static uint32_t sWriteCount = 0;
+    if (sWriteCount++ % 50 == 0) {
+      Serial.printf("[rc] data write #%lu, %u bytes:", (unsigned long)sWriteCount,
+                    (unsigned)len);
+      for (size_t i = 0; i < len && i < 30; i++) Serial.printf(" %02x", d[i]);
+      Serial.println();
+    }
     portENTER_CRITICAL(&sLock);
     for (size_t pos = 0; pos + 5 <= len; pos += 5) {
       uint8_t id = d[pos];
@@ -154,10 +166,31 @@ static bool sendConfigCommand(int cmdType, int monitorId, const char *payload) {
   return true;
 }
 
+// Sends one ADD and waits for the central's result write. Indications can
+// drop a payload part (seen with both Android and macOS centrals); without
+// the ack-wait the equation registers corrupted and the channel goes dead.
+static bool addMonitorAcked(int monitorId) {
+  for (int attempt = 0; attempt < 3; attempt++) {
+    sLastAckId = -1;
+    if (!sendConfigCommand(CMD_TYPE_ADD, monitorId,
+                           kMonitors[monitorId].equation)) {
+      return false;
+    }
+    for (int waited = 0; waited < 1000; waited += 10) {
+      if (sLastAckId == monitorId) break;
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    if (sLastAckId == monitorId && sLastAckResult == CMD_RESULT_OK) return true;
+    Serial.printf("[rc] monitor %d %s, resending\n", monitorId,
+                  sLastAckId == monitorId ? "rejected" : "not acked");
+  }
+  return false;
+}
+
 static bool configureMonitors() {
   if (!sendConfigCommand(CMD_TYPE_REMOVE_ALL, 0, nullptr)) return false;
   for (int i = 0; i < RC_CH_COUNT; i++) {
-    if (!sendConfigCommand(CMD_TYPE_ADD, i, kMonitors[i].equation)) return false;
+    if (!addMonitorAcked(i)) return false;
   }
   return true;
 }
