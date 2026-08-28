@@ -163,7 +163,12 @@ async def main():
                 struct.pack(">Bi", mid, vals[key])
                 for mid, key in sorted(channels.items()) if key)
             if out:
-                await client.write_gatt_char(NOTIFY_CHAR, out, response=False)
+                try:
+                    await client.write_gatt_char(NOTIFY_CHAR, out,
+                                                 response=False)
+                except Exception as e:  # connection dropped mid-write
+                    print(f"write failed ({e}), exiting", flush=True)
+                    break
             if time.time() - last_status >= 5:
                 last_status = time.time()
                 d = vals["delta_lap_time"]

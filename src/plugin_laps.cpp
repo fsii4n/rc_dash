@@ -10,13 +10,13 @@ static lv_obj_t *sBest;
 
 static void create(lv_obj_t *screen) {
   sPrev = lv_label_create(screen);
-  lv_obj_set_style_text_font(sPrev, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_font(sPrev, &lv_font_montserrat_24, 0);
   lv_obj_set_style_text_color(sPrev, COL_DIM, 0);
   lv_label_set_text(sPrev, "PREV -:--.-");
   lv_obj_align(sPrev, LV_ALIGN_CENTER, -80, 112);
 
   sBest = lv_label_create(screen);
-  lv_obj_set_style_text_font(sBest, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_font(sBest, &lv_font_montserrat_24, 0);
   lv_obj_set_style_text_color(sBest, COL_GOOD, 0);
   lv_label_set_text(sBest, "BEST -:--.-");
   lv_obj_align(sBest, LV_ALIGN_CENTER, 80, 112);

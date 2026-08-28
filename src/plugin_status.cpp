@@ -8,7 +8,7 @@ static lv_obj_t *sLabel;
 
 static void create(lv_obj_t *screen) {
   sLabel = lv_label_create(screen);
-  lv_obj_set_style_text_font(sLabel, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_font(sLabel, &lv_font_montserrat_24, 0);
   lv_obj_set_style_text_color(sLabel, COL_DIM, 0);
   lv_label_set_text(sLabel, "WAITING FOR RACECHRONO");
   lv_obj_align(sLabel, LV_ALIGN_CENTER, 0, 150);
