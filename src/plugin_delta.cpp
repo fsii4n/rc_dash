@@ -2,21 +2,27 @@
 // Also owns the full-screen background color: green when faster than the
 // comparison lap, red when slower, black while no comparison lap exists.
 //
-// Plain 48pt label on purpose: transform_zoom'd labels render through LVGL
-// draw layers, which silently draw nothing when the layer buffer can't be
-// allocated and cost 60ms+ per repaint when it can. The color field is the
-// glanceable signal; the number doesn't need to be bigger than the lap time.
+// Plain label on purpose (no transform styles): transform_zoom'd labels
+// render through LVGL draw layers, which silently draw nothing when the
+// layer buffer can't be allocated and cost 60ms+ per repaint when they can.
+// The big size comes from a custom-generated 72pt digits-only font instead
+// (src/font_montserrat_num_72.c, glyphs U+002B..U+003A only).
 #include <stdlib.h>
 
 #include "render_color.h"
 #include "render_num.h"
 #include "ui_plugin.h"
 
+LV_FONT_DECLARE(font_montserrat_num_72);
+
 static lv_obj_t *sLabel;
 
 static void create(lv_obj_t *screen) {
   sLabel = lv_label_create(screen);
-  lv_obj_set_style_text_font(sLabel, &lv_font_montserrat_48, 0);
+  // 72pt font line_height is 73px: centered at y=-42 the label spans
+  // ~-79..-5, clear of the 32pt speed label above (bottom ~-94) and the
+  // 48pt lap time below (top ~+21).
+  lv_obj_set_style_text_font(sLabel, &font_montserrat_num_72, 0);
   lv_obj_set_style_text_color(sLabel, COL_DIM, 0);
   lv_label_set_text(sLabel, "-.--");
   lv_obj_align(sLabel, LV_ALIGN_CENTER, 0, -42);
