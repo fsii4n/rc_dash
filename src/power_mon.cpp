@@ -41,11 +41,22 @@ static void powerTask(void *arg) {
     if (sPmu.isPekeyLongPressIrq()) {
       Serial.println("[pwr] power key held 2s, shutting down");
       sPmu.clearIrqStatus();
+      // Holds the I2C mutex across this delay — against i2c_bus.h's rule,
+      // but deliberate: the board is powering off and no one else should
+      // touch the bus mid-shutdown.
       delay(100);
       sPmu.shutdown();  // cuts all rails; PWR button press powers back on
     }
     sPmu.clearIrqStatus();
     i2cBusUnlock();
+
+    static uint32_t sLastStackReport = 0;
+    uint32_t now = millis();
+    if (now - sLastStackReport >= 60000) {
+      sLastStackReport = now;
+      Serial.printf("[pwr] stack free %u\n",
+                    (unsigned)uxTaskGetStackHighWaterMark(NULL));
+    }
 
     vTaskDelay(pdMS_TO_TICKS(500));
   }

@@ -90,6 +90,14 @@ static void dataTask(void *arg) {
     sModel.touchLocked = sTouchLocked;
     portEXIT_CRITICAL(&sLock);
 
+    static uint32_t sLastStackReport = 0;
+    uint32_t now = millis();
+    if (now - sLastStackReport >= 60000) {
+      sLastStackReport = now;
+      Serial.printf("[hub] stack free %u\n",
+                    (unsigned)uxTaskGetStackHighWaterMark(NULL));
+    }
+
     vTaskDelay(pdMS_TO_TICKS(50));
   }
 }

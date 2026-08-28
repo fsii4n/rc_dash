@@ -24,7 +24,6 @@ static Arduino_CO5300 *gfx = new Arduino_CO5300(
     6 /* col offset 1 */, 0, 0, 0);
 
 static lv_disp_draw_buf_t sDrawBuf;
-static SemaphoreHandle_t sLvglMutex;
 static uint8_t sBrightness = 200;
 
 void displaySetBrightness(uint8_t value) {
@@ -56,11 +55,13 @@ static void dispRounder(lv_disp_drv_t *disp, lv_area_t *area) {
 }
 
 // LVGL render task, pinned to core 1. Pure consumer: pulls the DashModel
-// the data hub task (core 0) publishes and drives the UI plugins.
+// the data hub task (core 0) publishes and drives the UI plugins. All LVGL
+// calls happen on this task (touch/slider callbacks run inside
+// lv_timer_handler here too) — display actions from other tasks must go
+// through DashModel, never call LVGL directly.
 static void lvglTask(void *arg) {
   uint32_t lastUiUpdate = 0;
   for (;;) {
-    xSemaphoreTake(sLvglMutex, portMAX_DELAY);
     uint32_t now = millis();
     if (now - lastUiUpdate >= 100) {
       lastUiUpdate = now;
@@ -69,15 +70,15 @@ static void lvglTask(void *arg) {
     uint32_t t0 = millis();
     lv_timer_handler();
     uint32_t frameMs = millis() - t0;
-    xSemaphoreGive(sLvglMutex);
 
-    // Frame-time telemetry: worst render+flush over each 10s window.
+    // Telemetry: worst render+flush and stack headroom over each 10s window.
     static uint32_t sMaxFrameMs = 0, sLastReport = 0;
     if (frameMs > sMaxFrameMs) sMaxFrameMs = frameMs;
     if (now - sLastReport >= 10000) {
       if (sLastReport != 0) {
-        Serial.printf("[ui] max frame %lums over last 10s\n",
-                      (unsigned long)sMaxFrameMs);
+        Serial.printf("[ui] max frame %lums over last 10s, stack free %u\n",
+                      (unsigned long)sMaxFrameMs,
+                      (unsigned)uxTaskGetStackHighWaterMark(NULL));
       }
       sLastReport = now;
       sMaxFrameMs = 0;
@@ -132,7 +133,6 @@ void setup() {
   rcMonitorStart();
   dataHubStart();
 
-  sLvglMutex = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(lvglTask, "lvgl", 8192, nullptr, 4, nullptr, 1);
 }
 

@@ -83,8 +83,10 @@ class ServerCallbacks : public NimBLEServerCallbacks {
 
 // Last command result written back by the central; configureMonitors()
 // waits on these so a dropped indication part gets detected and resent.
-static volatile int sLastAckId = -1;
-static volatile int sLastAckResult = -1;
+// Packed (result << 8) | monitorId in ONE volatile: the NimBLE host task
+// writes it while rcTask polls it, and two separate variables could be read
+// half-updated.
+static volatile int32_t sLastAck = -1;
 
 class ConfigCharCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic *chr, NimBLEConnInfo &connInfo) override {
@@ -100,8 +102,7 @@ class ConfigCharCallbacks : public NimBLECharacteristicCallbacks {
       default:
         break;
     }
-    sLastAckResult = v[0];
-    sLastAckId = v[1];
+    sLastAck = ((int32_t)v[0] << 8) | v[1];
   }
 };
 
@@ -171,18 +172,21 @@ static bool sendConfigCommand(int cmdType, int monitorId, const char *payload) {
 // the ack-wait the equation registers corrupted and the channel goes dead.
 static bool addMonitorAcked(int monitorId) {
   for (int attempt = 0; attempt < 3; attempt++) {
-    sLastAckId = -1;
+    sLastAck = -1;
     if (!sendConfigCommand(CMD_TYPE_ADD, monitorId,
                            kMonitors[monitorId].equation)) {
       return false;
     }
+    int32_t ack = -1;
     for (int waited = 0; waited < 1000; waited += 10) {
-      if (sLastAckId == monitorId) break;
+      ack = sLastAck;
+      if (ack >= 0 && (ack & 0xff) == monitorId) break;
       vTaskDelay(pdMS_TO_TICKS(10));
     }
-    if (sLastAckId == monitorId && sLastAckResult == CMD_RESULT_OK) return true;
+    bool acked = ack >= 0 && (ack & 0xff) == monitorId;
+    if (acked && (ack >> 8) == CMD_RESULT_OK) return true;
     Serial.printf("[rc] monitor %d %s, resending\n", monitorId,
-                  sLastAckId == monitorId ? "rejected" : "not acked");
+                  acked ? "rejected" : "not acked");
   }
   return false;
 }
