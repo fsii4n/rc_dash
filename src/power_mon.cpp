@@ -31,9 +31,11 @@ static void powerTask(void *arg) {
 
     // The PMIC IRQ line is not routed to a GPIO in our pin map, so poll the
     // interrupt status register instead (same approach as Waveshare's demo).
+    // Shutdown requires a 2 s long press; a short press does nothing (its
+    // IRQ is not even enabled — reserved for a future function).
     sPmu.getIrqStatus();
-    if (sPmu.isPekeyShortPressIrq()) {
-      Serial.println("[pwr] power key pressed, shutting down");
+    if (sPmu.isPekeyLongPressIrq()) {
+      Serial.println("[pwr] power key held 2s, shutting down");
       sPmu.clearIrqStatus();
       delay(100);
       sPmu.shutdown();  // cuts all rails; PWR button press powers back on
@@ -54,9 +56,20 @@ void powerMonStart() {
   }
   Serial.printf("[pwr] AXP2101 online, chip id 0x%02x\n", sPmu.getChipID());
 
+  // Power off on a 2 s PWR-key long press. IRQLEVEL sets when the long-press
+  // IRQ fires; the AXP2101 offers 1 / 1.5 / 2 / 2.5 s and 2 s is available
+  // exactly (XPOWERS_AXP2101_IRQ_TIME_2S).
+  sPmu.setIrqLevelTime(XPOWERS_AXP2101_IRQ_TIME_2S);
+  // Hardware forced power-off (OFFLEVEL) stays as a failsafe if the firmware
+  // hangs; 4 s is its minimum and comfortably above the 2 s IRQ + 500 ms poll,
+  // so the software shutdown always fires first.
+  sPmu.setPowerKeyPressOffTime(XPOWERS_POWEROFF_4S);
+  sPmu.enableLongPressShutdown();  // OFFLEVEL hold hard-cuts power...
+  sPmu.setLongPressPowerOFF();     // ...as a power-off, not a restart
+
   sPmu.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
   sPmu.clearIrqStatus();
-  sPmu.enableIRQ(XPOWERS_AXP2101_PKEY_SHORT_IRQ);
+  sPmu.enableIRQ(XPOWERS_AXP2101_PKEY_LONG_IRQ);
 
   sPmu.enableBattDetection();
   sPmu.enableBattVoltageMeasure();

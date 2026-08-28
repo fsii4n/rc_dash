@@ -3,12 +3,34 @@
 #include <Arduino.h>
 #include <string.h>
 
+#include "pin_config.h"
+
 static portMUX_TYPE sLock = portMUX_INITIALIZER_UNLOCKED;
 static DashModel sModel;
 static volatile bool sTouchLocked = false;
 
 void dataHubSetTouchLocked(bool locked) { sTouchLocked = locked; }
 bool dataHubGetTouchLocked() { return sTouchLocked; }
+
+// ---- touch-lock button (BOOT key, GPIO0, active low) -----------------------
+
+// Debounced by the 50 ms task cadence: the raw level must read the same on
+// two consecutive polls (50-100 ms stable) before the state changes, and the
+// lock toggles on the press edge only. No ISR needed for a human press.
+static bool sBtnStable = false;   // debounced "pressed" state
+static bool sBtnLastRaw = false;  // previous raw sample
+
+static void pollLockButton() {
+  bool raw = digitalRead(KEY_BOOT) == LOW;
+  if (raw == sBtnLastRaw && raw != sBtnStable) {
+    sBtnStable = raw;
+    if (sBtnStable) {  // press edge
+      dataHubSetTouchLocked(!dataHubGetTouchLocked());
+      Serial.printf("[hub] touch %s\n", sTouchLocked ? "locked" : "unlocked");
+    }
+  }
+  sBtnLastRaw = raw;
+}
 
 // ---- delta trend (derivative of the live delta) ----------------------------
 
@@ -52,6 +74,8 @@ static DeltaTrend computeTrend(int32_t delta, uint32_t nowMs) {
 
 static void dataTask(void *arg) {
   for (;;) {
+    pollLockButton();
+
     RcSnapshot snap;
     rcMonitorGet(snap);
     PowerStatus power;
@@ -71,6 +95,9 @@ static void dataTask(void *arg) {
 }
 
 void dataHubStart() {
+  // External 10K pull-up on board; the internal one is belt-and-braces.
+  pinMode(KEY_BOOT, INPUT_PULLUP);
+
   for (int i = 0; i < RC_CH_COUNT; i++) sModel.values[i] = RC_INVALID_VALUE;
   sModel.trend = TREND_INVALID;
   sModel.state = RC_STATE_ADVERTISING;
