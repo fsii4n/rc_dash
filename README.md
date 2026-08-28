@@ -51,7 +51,9 @@ doesn't care which GPS device feeds RaceChrono.
 | --- | --- |
 | `src/main.cpp` | display bring-up (Arduino_GFX CO5300 over QSPI), LVGL init, FreeRTOS tasks |
 | `src/rc_monitor.*` | RaceChrono DIY monitor BLE peripheral (NimBLE), channel config handshake |
-| `src/ui.*` | LVGL screen: speed arc, lap times, status |
+| `src/power_mon.*` | AXP2101 PMIC: battery gauge polling + power-key shutdown |
+| `src/ui.*` | LVGL screen: speed arc, lap times, battery, status |
+| `docs/` | board schematic PDF (from Waveshare's official repo) |
 | `include/pin_config.h` | board pin map (from Waveshare's official examples) |
 | `include/lv_conf.h` | LVGL 8.4 config (based on Waveshare's, demos off, `millis()` tick) |
 
@@ -69,10 +71,21 @@ Registered with RaceChrono at connect time (`src/rc_monitor.cpp`):
 
 Any RaceChrono channel (OBD, CAN, accelerometer…) can be added the same way.
 
+## Power
+
+The PWR button is wired to the AXP2101's PWRON pin (see the schematic in
+`docs/`), so power-on is pure hardware: press PWR to boot. In firmware,
+`src/power_mon.*` polls the PMIC over I2C (no IRQ GPIO is routed):
+
+- **Power off**: short-press the PWR button → clean AXP2101 shutdown (all
+  rails cut). Press PWR again to boot.
+- **Battery**: percent + charge state shown at the top of the dial,
+  color-coded (green charging, amber <30%, red <15%; USB icon when running
+  without a battery).
+
 ## Next steps (not in the PoC)
 
 - Touch (CST9217 via `SensorLib`) to switch pages
-- AXP2101 battery gauge in the status area
 - Live delta-to-best rendering, predictive timing
 - AMOLED burn-in care: dim/blank when no data flows
 

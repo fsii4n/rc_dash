@@ -17,6 +17,7 @@ static lv_obj_t *sLapTimeLabel;
 static lv_obj_t *sPrevLabel;
 static lv_obj_t *sBestLabel;
 static lv_obj_t *sStatusLabel;
+static lv_obj_t *sBattLabel;
 
 static const lv_color_t COL_ACCENT = lv_color_make(0xff, 0x5a, 0x00);
 static const lv_color_t COL_DIM = lv_color_make(0x50, 0x50, 0x50);
@@ -86,12 +87,43 @@ void uiCreate() {
   lv_label_set_text(sBestLabel, "BEST -:--.-");
   lv_obj_align(sBestLabel, LV_ALIGN_CENTER, 80, 95);
 
+  // Battery indicator, top of the round face
+  sBattLabel = lv_label_create(scr);
+  lv_obj_set_style_text_font(sBattLabel, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(sBattLabel, COL_DIM, 0);
+  lv_label_set_text(sBattLabel, "");
+  lv_obj_align(sBattLabel, LV_ALIGN_CENTER, 0, -150);
+
   // Lap number / connection status
   sStatusLabel = lv_label_create(scr);
   lv_obj_set_style_text_font(sStatusLabel, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(sStatusLabel, COL_DIM, 0);
   lv_label_set_text(sStatusLabel, "WAITING FOR RACECHRONO");
   lv_obj_align(sStatusLabel, LV_ALIGN_CENTER, 0, 150);
+}
+
+void uiUpdateBattery(const PowerStatus &power) {
+  if (!power.pmicOk) {
+    lv_label_set_text(sBattLabel, "");
+    return;
+  }
+  if (!power.battConnected) {
+    lv_label_set_text(sBattLabel, LV_SYMBOL_USB);
+    lv_obj_set_style_text_color(sBattLabel, COL_DIM, 0);
+    return;
+  }
+  const char *sym = power.charging          ? LV_SYMBOL_CHARGE
+                    : power.percent > 75    ? LV_SYMBOL_BATTERY_FULL
+                    : power.percent > 50    ? LV_SYMBOL_BATTERY_3
+                    : power.percent > 25    ? LV_SYMBOL_BATTERY_2
+                    : power.percent > 10    ? LV_SYMBOL_BATTERY_1
+                                            : LV_SYMBOL_BATTERY_EMPTY;
+  lv_label_set_text_fmt(sBattLabel, "%s %d%%", sym, power.percent);
+  lv_color_t col = power.charging     ? lv_color_make(0x30, 0xc0, 0x50)
+                   : power.percent <= 15 ? lv_color_make(0xe0, 0x30, 0x30)
+                   : power.percent <= 30 ? lv_color_make(0xe0, 0xa0, 0x20)
+                                         : COL_TEXT;
+  lv_obj_set_style_text_color(sBattLabel, col, 0);
 }
 
 void uiUpdate(const RcSnapshot &snap) {

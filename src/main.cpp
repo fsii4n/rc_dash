@@ -9,6 +9,7 @@
 #include <lvgl.h>
 
 #include "pin_config.h"
+#include "power_mon.h"
 #include "rc_monitor.h"
 #include "ui.h"
 
@@ -41,6 +42,7 @@ static void dispRounder(lv_disp_drv_t *disp, lv_area_t *area) {
 // LVGL rendering task, pinned to core 1 (BLE/NimBLE host runs on core 0).
 static void lvglTask(void *arg) {
   uint32_t lastUiUpdate = 0;
+  uint32_t lastBattUpdate = 0;
   for (;;) {
     xSemaphoreTake(sLvglMutex, portMAX_DELAY);
     uint32_t now = millis();
@@ -49,6 +51,12 @@ static void lvglTask(void *arg) {
       RcSnapshot snap;
       rcMonitorGet(snap);
       uiUpdate(snap);
+    }
+    if (now - lastBattUpdate >= 1000) {
+      lastBattUpdate = now;
+      PowerStatus power;
+      powerMonGet(power);
+      uiUpdateBattery(power);
     }
     lv_timer_handler();
     xSemaphoreGive(sLvglMutex);
@@ -59,6 +67,8 @@ static void lvglTask(void *arg) {
 void setup() {
   Serial.begin(115200);
   Serial.println("[main] RaceChrono AMOLED monitor PoC");
+
+  powerMonStart();
 
   if (!gfx->begin(80000000L /* QSPI clock */)) {
     Serial.println("[main] gfx->begin() failed!");
