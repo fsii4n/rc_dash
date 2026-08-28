@@ -18,6 +18,7 @@ static lv_obj_t *sPrevLabel;
 static lv_obj_t *sBestLabel;
 static lv_obj_t *sStatusLabel;
 static lv_obj_t *sBattLabel;
+static lv_obj_t *sDeltaLabel;
 
 static const lv_color_t COL_ACCENT = lv_color_make(0xff, 0x5a, 0x00);
 static const lv_color_t COL_DIM = lv_color_make(0x50, 0x50, 0x50);
@@ -59,20 +60,27 @@ void uiCreate() {
   lv_obj_set_style_text_font(sSpeedLabel, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(sSpeedLabel, COL_TEXT, 0);
   lv_label_set_text(sSpeedLabel, "0");
-  lv_obj_align(sSpeedLabel, LV_ALIGN_CENTER, 0, -60);
+  lv_obj_align(sSpeedLabel, LV_ALIGN_CENTER, 0, -75);
 
   lv_obj_t *unit = lv_label_create(scr);
   lv_obj_set_style_text_font(unit, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(unit, COL_DIM, 0);
   lv_label_set_text(unit, "km/h");
-  lv_obj_align(unit, LV_ALIGN_CENTER, 0, -20);
+  lv_obj_align(unit, LV_ALIGN_CENTER, 0, -38);
+
+  // Live delta vs comparison lap — the headline number
+  sDeltaLabel = lv_label_create(scr);
+  lv_obj_set_style_text_font(sDeltaLabel, &lv_font_montserrat_48, 0);
+  lv_obj_set_style_text_color(sDeltaLabel, COL_DIM, 0);
+  lv_label_set_text(sDeltaLabel, "-.--");
+  lv_obj_align(sDeltaLabel, LV_ALIGN_CENTER, 0, 10);
 
   // Current lap time
   sLapTimeLabel = lv_label_create(scr);
-  lv_obj_set_style_text_font(sLapTimeLabel, &lv_font_montserrat_40, 0);
+  lv_obj_set_style_text_font(sLapTimeLabel, &lv_font_montserrat_32, 0);
   lv_obj_set_style_text_color(sLapTimeLabel, COL_TEXT, 0);
   lv_label_set_text(sLapTimeLabel, "-:--.-");
-  lv_obj_align(sLapTimeLabel, LV_ALIGN_CENTER, 0, 40);
+  lv_obj_align(sLapTimeLabel, LV_ALIGN_CENTER, 0, 60);
 
   // Previous / best lap row
   sPrevLabel = lv_label_create(scr);
@@ -134,6 +142,20 @@ void uiUpdate(const RcSnapshot &snap) {
   int kmh = (rawSpeed == RC_INVALID_VALUE) ? 0 : (int)(rawSpeed * 0.36f + 0.5f);
   lv_label_set_text_fmt(sSpeedLabel, "%d", kmh);
   lv_arc_set_value(sArc, kmh > SPEED_ARC_MAX_KMH ? SPEED_ARC_MAX_KMH : kmh);
+
+  // Delta: signed centiseconds; negative = faster than comparison lap
+  int32_t delta = snap.values[RC_CH_DELTA];
+  if (delta == RC_INVALID_VALUE) {
+    lv_label_set_text(sDeltaLabel, "-.--");
+    lv_obj_set_style_text_color(sDeltaLabel, COL_DIM, 0);
+  } else {
+    lv_label_set_text_fmt(sDeltaLabel, "%s%ld.%02ld", delta < 0 ? "-" : "+",
+                          (long)(labs(delta) / 100), (long)(labs(delta) % 100));
+    lv_obj_set_style_text_color(sDeltaLabel,
+                                delta <= 0 ? lv_color_make(0x30, 0xc0, 0x50)
+                                           : lv_color_make(0xe0, 0x30, 0x30),
+                                0);
+  }
 
   formatLapTime(buf, sizeof(buf), snap.values[RC_CH_LAP_TIME]);
   lv_label_set_text(sLapTimeLabel, buf);

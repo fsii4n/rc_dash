@@ -422,7 +422,14 @@ public class MainActivity extends Activity {
                     String eq = equations.get(id);
                     if (eq.isEmpty()) continue;
                     int value;
-                    if (eq.contains("speed")) value = speedRaw;
+                    // "delta_lap_time" must match before the generic "lap_time"
+                    if (eq.contains("delta_lap_time")) {
+                        // no comparison lap on the first lap -> invalid
+                        value = lapNumber <= 1 ? 0x7fffffff
+                                : (int) Math.round(
+                                        300 * Math.sin((now - lapStartMs) / 9000.0));
+                    }
+                    else if (eq.contains("speed")) value = speedRaw;
                     else if (eq.contains("previous_lap_time")) value = prevLapDeci;
                     else if (eq.contains("best_lap_time")) value = bestLapDeci;
                     else if (eq.contains("lap_time")) value = lapTimeDeci;

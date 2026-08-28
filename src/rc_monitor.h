@@ -17,6 +17,7 @@ enum RcChannel : uint8_t {
   RC_CH_LAP_TIME,       // current lap time, s * 10
   RC_CH_PREV_LAP_TIME,  // previous lap time, s * 10
   RC_CH_BEST_LAP_TIME,  // best lap time, s * 10
+  RC_CH_DELTA,          // live delta vs comparison lap, s * 100 (signed)
   RC_CH_COUNT
 };
 

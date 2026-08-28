@@ -32,6 +32,8 @@ static const MonitorDef kMonitors[RC_CH_COUNT] = {
     {"channel(device(lap), lap_time)*10.0"},
     {"channel(device(lap), previous_lap_time)*10.0"},
     {"channel(device(lap), best_lap_time)*10.0"},
+    // Invalid until a comparison lap exists (first full lap of the session)
+    {"channel(device(lap), delta_lap_time)*100.0"},
 };
 
 // ---- shared state ----------------------------------------------------------
