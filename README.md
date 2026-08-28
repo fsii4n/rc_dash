@@ -10,15 +10,23 @@ VBOX Sport ──Bluetooth SPP──▶ phone (RaceChrono) ──BLE──▶ th
 The board advertises as a **RaceChrono DIY** BLE device (service `0x1ff8`).
 RaceChrono connects, the firmware registers monitor channels (GPS speed +
 lap timing), and RaceChrono streams the values, which are rendered with LVGL
-on the 466×466 round AMOLED. Kart-focused, delta-first layout:
+on the 466×466 round AMOLED. Kart-focused, delta-first, two swipeable pages:
 
-- big live delta readout (s); full-screen background green when faster than
-  the comparison lap, red when slower
+**Dash page**
+- big live delta readout (72px); full-screen background green when faster
+  than the comparison lap, red when slower
 - outer ring colored by the delta *trend* (green = gaining time, red =
   losing time) — independent of the delta's sign
 - current lap time (equal billing with the delta)
-- small km/h readout, previous / best lap row
-- lap number & connection status, battery indicator
+- small km/h readout, previous / best lap times (color-coded, no labels)
+- lap number & connection status, battery, touch-lock indicator
+- pull-down menu (drag from top): screen brightness
+
+**Race page** (swipe left): just the essentials, huge — delta number (110px),
+background = delta sign, thick bezel ring = delta trend.
+
+**Controls**: PWR key hold 2 s = power off; BOOT key (5 o'clock) = touch
+lock on/off.
 
 ## Build & flash
 

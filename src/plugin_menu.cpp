@@ -76,7 +76,10 @@ static void create(lv_obj_t *screen) {
   lv_obj_set_style_bg_color(sScrim, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(sScrim, LV_OPA_50, 0);
   lv_obj_add_flag(sScrim, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_HIDDEN);
-  lv_obj_clear_flag(sScrim, LV_OBJ_FLAG_SCROLLABLE);
+  // No SCROLL_CHAIN: a horizontal drag on the open menu must not swipe the
+  // tileview to the race page underneath.
+  lv_obj_clear_flag(sScrim,
+                    (lv_obj_flag_t)(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_CHAIN));
   lv_obj_add_event_cb(sScrim, scrimClickCb, LV_EVENT_CLICKED, nullptr);
 
   // Panel: dark rounded card, flex column so more rows slot in later.

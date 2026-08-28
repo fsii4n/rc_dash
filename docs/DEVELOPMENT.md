@@ -28,8 +28,23 @@ data_hub task (20 Hz):                           for each plugin:
   - `create(screen)` — build & position its LVGL objects
   - `update(model)` — map the latest `DashModel` onto them
   Plugins never touch BLE, FreeRTOS, or other plugins.
-- **`ui.cpp`** — screen composition only: the plugin registry array plus
-  `uiCreate()`/`uiTick()`. Adding/removing a screen element = one line here.
+- **`ui.cpp`** — screen composition only: a `PluginSlot {plugin, page}`
+  registry plus `uiCreate()`/`uiTick()`. The UI is a two-page `lv_tileview`
+  (horizontal swipe, snap): page 0 is the full dash, page 1 the minimal
+  race page (`plugin_race_page`: thick trend ring + 110px delta only).
+  The tileview and tiles are transparent so the screen background — the
+  delta sign color set by `plugin_delta` on `lv_scr_act()` — shows through
+  on both pages. Every plugin updates every tick regardless of visibility;
+  change-caches keep the off-screen page free. `kPluginMenu` stays last in
+  the registry (its panel must be created on top); the menu lives in tile 0
+  only. Adding/removing a screen element = one registry line.
+- **`touch_input`** — CST9217 via SensorLib (`TouchDrvCST92xx`), registered
+  as an LVGL pointer indev; the read callback swallows touches while
+  `dataHubGetTouchLocked()` is set (BOOT key toggles it).
+- **`i2c_bus`** — the Wire bus is shared (AXP2101 on core 0, CST9217 from
+  the LVGL task on core 1) and Wire is not thread-safe: EVERY I2C
+  transaction must sit inside `i2cBusLock()`/`i2cBusUnlock()`. Any new I2C
+  device (IMU, etc.) must follow this rule.
 - **Shared render modules** — plugins do not hand-roll formatting or colors:
   - `render_num` — quantitative value → display string (lap times, delta
     seconds, km/h). Pure functions, no LVGL. Invalid values render as
@@ -58,6 +73,40 @@ parts were observed getting dropped with both Android and macOS centrals,
 silently corrupting the registered equations (channel goes dead).
 `tools/ble_burner.py` NAKs out-of-sequence payloads (result code 1) to
 trigger the resend.
+
+### Controls
+
+- **PWR key** (1 o'clock, AXP2101 PWRON — not a GPIO): hold **2 s** to power
+  off (`XPOWERS_AXP2101_PKEY_LONG_IRQ` + `setIrqLevelTime(2S)`, polled every
+  500 ms). Short press does nothing (IRQ not enabled, reserved). Hardware
+  OFFLEVEL failsafe stays at 4 s in case firmware hangs.
+- **BOOT key** (5 o'clock, GPIO0 active-low, verified against the schematic
+  netlist): toggles the touch lock. Debounced by two consecutive 50 ms polls
+  in the data_hub task. Locked state shows `LV_SYMBOL_EYE_CLOSE` (LVGL 8.4
+  has no lock glyph) in amber at the bottom of the dial.
+- **Pull-down menu**: drag >40 px down from the top-edge zone (dash page
+  only) → brightness slider (5..255 → `displaySetBrightness()`), close via
+  button or tapping the scrim. The scrim blocks clicks and scroll-chaining
+  so the open menu can't swipe pages.
+- **Page swipe**: horizontal swipe anywhere flips dash ⇄ race page
+  (tileview snap).
+
+### Custom fonts
+
+Built-in Montserrat stops at 48pt. Bigger readouts use fonts generated with
+`lv_font_conv` (node/npx) from the TTF LVGL ships in
+`.pio/libdeps/amoled-175c/lvgl/scripts/built_in_font/`:
+
+```sh
+npx lv_font_conv --font Montserrat-Medium.ttf --size 110 --bpp 4 \
+  --format lvgl --range 0x2B-0x3A -o src/font_montserrat_num_110.c \
+  --force-fast-kern-format --no-compress
+```
+
+Digits-only (`+,-./0-9:`) keeps flash small: the 72px font costs ~12 KB, the
+110px one ~28 KB. Fix the generated include to `<lvgl.h>` (the project uses
+`LV_CONF_INCLUDE_SIMPLE`); declare with `LV_FONT_DECLARE(...)` at use sites.
+Never scale fonts with transform styles (see below).
 
 ### Rendering rules of thumb
 
@@ -88,6 +137,15 @@ trigger the resend.
   on: `LV_COLOR_16_SWAP` + a `draw16bitBeRGBBitmap`/`writeBytes` direct
   (big-endian) path + larger SPI transactions via
   `ESP32QSPI_MAX_PIXELS_AT_ONCE`.
+
+### Hardware verification status
+
+Touch input, the pull-down menu, the touch-lock button, the 2 s power-off
+and the race page were developed **offline** (build-verified only, in
+parallel git worktrees by multiple agents, then merged). First on-device
+checks worth doing: CST9217 coordinate orientation (`setSwapXY`/
+`setMirrorXY` in `touch_input.cpp` are the knobs if mirrored), menu drag
+feel, swipe-vs-drag-zone interplay, and the 2 s long-press timing.
 
 ## Bench testing: stream from the Mac
 
