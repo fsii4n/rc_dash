@@ -13,6 +13,7 @@
 #include "pin_config.h"
 #include "power_mon.h"
 #include "rc_monitor.h"
+#include "touch_input.h"
 #include "ui.h"
 
 static Arduino_DataBus *bus = new Arduino_ESP32QSPI(
@@ -121,6 +122,12 @@ void setup() {
   lv_disp_drv_register(&dispDrv);
 
   uiCreate();
+
+  // After display registration (the indev binds to the default display) and
+  // before the LVGL task exists, so indev registration can't race
+  // lv_timer_handler. The power task is already polling the shared I2C bus;
+  // touchInputInit serializes against it via the i2c_bus mutex.
+  touchInputInit();
 
   rcMonitorStart();
   dataHubStart();
