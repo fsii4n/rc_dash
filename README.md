@@ -10,12 +10,15 @@ VBOX Sport ──Bluetooth SPP──▶ phone (RaceChrono) ──BLE──▶ th
 The board advertises as a **RaceChrono DIY** BLE device (service `0x1ff8`).
 RaceChrono connects, the firmware registers monitor channels (GPS speed +
 lap timing), and RaceChrono streams the values, which are rendered with LVGL
-on the 466×466 round AMOLED:
+on the 466×466 round AMOLED. Kart-focused, delta-first layout:
 
-- speed arc + big km/h readout (fed by the VBOX Sport's GPS via RaceChrono)
-- current lap time
-- previous / best lap time
-- lap number & connection status
+- big live delta readout (s); full-screen background green when faster than
+  the comparison lap, red when slower
+- outer ring colored by the delta *trend* (green = gaining time, red =
+  losing time) — independent of the delta's sign
+- current lap time (equal billing with the delta)
+- small km/h readout, previous / best lap row
+- lap number & connection status, battery indicator
 
 ## Build & flash
 
@@ -47,12 +50,24 @@ doesn't care which GPS device feeds RaceChrono.
 
 ## Source layout
 
+Rendering and data update are decoupled: `rc_monitor` (NimBLE callbacks) and
+the `data_hub` task (core 0) produce a `DashModel`; the LVGL render task
+(core 1) consumes it and drives self-contained UI plugins.
+
 | File | Purpose |
 | --- | --- |
-| `src/main.cpp` | display bring-up (Arduino_GFX CO5300 over QSPI), LVGL init, FreeRTOS tasks |
+| `src/main.cpp` | display bring-up (Arduino_GFX CO5300 over QSPI), LVGL init, render task |
 | `src/rc_monitor.*` | RaceChrono DIY monitor BLE peripheral (NimBLE), channel config handshake |
 | `src/power_mon.*` | AXP2101 PMIC: battery gauge polling + power-key shutdown |
-| `src/ui.*` | LVGL screen: speed arc, lap times, battery, status |
+| `src/data_hub.*` | data task (core 0): BLE + PMIC → `DashModel`, derives delta trend |
+| `src/dash_model.h` | the model struct UI plugins consume |
+| `src/ui_plugin.h` | plugin interface: `create(screen)` + `update(model)` |
+| `src/ui.*` | screen composition: plugin registry, `uiTick()` |
+| `src/plugin_*.cpp` | one plugin per screen element (delta, trend ring, lap time, speed, prev/best, status, battery) |
+| `src/render_num.*` | numeric rendering module: value → display string |
+| `src/render_color.*` | color rendering module: value → color (delta sign, trend, battery) |
+| `tools/ble_burner.py` | **primary test rig**: Mac-side RaceChrono simulator (see below) |
+| `docs/DEVELOPMENT.md` | architecture (plugin system, task split) + bench-testing guide |
 | `docs/` | board schematic PDF (from Waveshare's official repo) |
 | `include/pin_config.h` | board pin map (from Waveshare's official examples) |
 | `include/lv_conf.h` | LVGL 8.4 config (based on Waveshare's, demos off, `millis()` tick) |
@@ -95,13 +110,27 @@ The PWR button is wired to the AXP2101's PWRON pin (see the schematic in
 - RaceChrono DIY BLE protocol: <https://github.com/aollin/racechrono-ble-diy-device>
 - Board examples & pinout: <https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C>
 
-## Test rig: `burner/` Android app
+## Test rig
 
-A throwaway Android app that impersonates RaceChrono for bench-testing the
-display without VBOX/RaceChrono/track: it scans for the `RC DIY` peripheral,
-subscribes to the config characteristic, acks the monitor registration, then
-streams simulated telemetry at 10 Hz (speed sweep 40–250 km/h, lap timer with
-rollover, prev/best lap tracking).
+**Primary: `tools/ble_burner.py` (Mac).** Impersonates RaceChrono from the
+Mac — no phone needed:
+
+```sh
+pip install bleak
+python3 tools/ble_burner.py
+```
+
+Streams simulated telemetry at 10 Hz: ~20 s laps, random-walk live delta
+±2 s (invalid on lap 1), speed sweep. See `docs/DEVELOPMENT.md` for the
+debugging workflow.
+
+### Secondary: `burner/` Android app
+
+An Android app that does the same job for phone-in-the-loop testing: it scans
+for the `RC DIY` peripheral, subscribes to the config characteristic, acks
+the monitor registration, then streams the same simulated telemetry at 10 Hz.
+Android BLE has proven flaky (the app can freeze and stall the stream) —
+prefer the Mac script for bench work.
 
 Build (offline, no Gradle — uses SDK aapt2/d8/apksigner directly):
 
