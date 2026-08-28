@@ -68,6 +68,7 @@ Registered with RaceChrono at connect time (`src/rc_monitor.cpp`):
 | 2 | `channel(device(lap), lap_time)*10.0` | s × 10 |
 | 3 | `channel(device(lap), previous_lap_time)*10.0` | s × 10 |
 | 4 | `channel(device(lap), best_lap_time)*10.0` | s × 10 |
+| 5 | `channel(device(lap), delta_lap_time)*100.0` | s × 100, signed; invalid until a comparison lap exists |
 
 Any RaceChrono channel (OBD, CAN, accelerometer…) can be added the same way.
 
