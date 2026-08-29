@@ -154,9 +154,21 @@ static bool sendConfigCommand(int cmdType, int monitorId, const char *payload) {
     bytes[2] = (uint8_t)payloadSequence;
     if (part) memcpy(bytes + 3, p, part);
 
-    if (!sConnected) return false;
-    sConfigChar->setValue(bytes, 3 + part);
-    if (!sConfigChar->indicate()) return false;
+    // indicate() fails while the previous indication is still unconfirmed
+    // (common with slow centrals) — retry with backoff instead of aborting,
+    // otherwise middle payload parts are silently never sent.
+    bool sent = false;
+    for (int tries = 0; tries < 20 && !sent; tries++) {
+      if (!sConnected) return false;
+      sConfigChar->setValue(bytes, 3 + part);
+      sent = sConfigChar->indicate();
+      if (!sent) vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    if (!sent) {
+      Serial.printf("[rc] indicate stuck (monitor %d part %d)\n", monitorId,
+                    payloadSequence);
+      return false;
+    }
     vTaskDelay(pdMS_TO_TICKS(50));
 
     p += part;

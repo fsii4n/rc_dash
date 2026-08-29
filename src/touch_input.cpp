@@ -18,6 +18,7 @@ static bool sTouchOk = false;
 // the AXP2101 poll on core 0.
 static void touchReadCb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
   static lv_coord_t sLastX = 0, sLastY = 0;
+  static bool sWasPressed = false;
 
   data->state = LV_INDEV_STATE_RELEASED;
   data->point.x = sLastX;
@@ -30,17 +31,30 @@ static void touchReadCb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
   // pts references driver-internal state only ever mutated from this task,
   // so reading it after unlock is safe — the mutex protects the Wire bus.
 
-  if (!pts.hasPoints()) return;
-
   // Touch lock gate: report RELEASED and swallow the point entirely.
-  if (dataHubGetTouchLocked()) return;
+  if (!pts.hasPoints() || dataHubGetTouchLocked()) {
+    sWasPressed = false;
+    return;
+  }
 
   const TouchPoint &p = pts.getPoint(0);
-  sLastX = (lv_coord_t)(p.x < LCD_WIDTH ? p.x : LCD_WIDTH - 1);
-  sLastY = (lv_coord_t)(p.y < LCD_HEIGHT ? p.y : LCD_HEIGHT - 1);
+  uint16_t rawX = p.x < LCD_WIDTH ? p.x : LCD_WIDTH - 1;
+  uint16_t rawY = p.y < LCD_HEIGHT ? p.y : LCD_HEIGHT - 1;
+  // The panel reports coordinates rotated 180° relative to the display on
+  // this board: mirror both axes (user-verified on device).
+  sLastX = (lv_coord_t)(LCD_WIDTH - 1 - rawX);
+  sLastY = (lv_coord_t)(LCD_HEIGHT - 1 - rawY);
   data->point.x = sLastX;
   data->point.y = sLastY;
   data->state = LV_INDEV_STATE_PRESSED;
+
+  // Debug: log the first point of each touch so orientation problems are
+  // visible over serial (raw = controller output, mapped = what LVGL sees).
+  if (!sWasPressed) {
+    Serial.printf("[touch] raw %u,%u -> mapped %d,%d\n", rawX, rawY,
+                  (int)sLastX, (int)sLastY);
+  }
+  sWasPressed = true;
 }
 
 bool touchInputInit() {
