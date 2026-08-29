@@ -29,13 +29,20 @@ data_hub task (20 Hz):                           for each plugin:
   - `update(model)` — map the latest `DashModel` onto them
   Plugins never touch BLE, FreeRTOS, or other plugins.
 - **`ui.cpp`** — screen composition only: a `PluginSlot {plugin, page}`
-  registry plus `uiCreate()`/`uiTick()`. The UI is a two-page `lv_tileview`
-  (horizontal swipe, snap): page 0 is the full dash, page 1 the minimal
-  race page (`plugin_race_page`: thick trend ring + 110px delta only).
+  registry plus `uiCreate()`/`uiTick()`. The UI is a four-page `lv_tileview`
+  (horizontal swipe, snap): page 0 the full dash, page 1 the minimal race
+  page (`plugin_race_page`: thick trend ring + 110px delta only), page 2
+  predictive lap time (`plugin_predictive`: best + live delta, green/red vs
+  best — the delta's comparison lap is the session best), page 3 lap
+  history (`plugin_lap_history`: last laps with the session best in green,
+  plus lap count / max speed — the data_hub records completed laps and the
+  session max, resetting when RaceChrono's lap counter goes backwards).
+  Page design follows what kart timers ship (MyChron/Alfano/Unipro): live
+  dash pages plus lap-recall and theoretical/predictive views.
   The tileview and tiles are transparent so the screen background — the
   delta sign color set by `plugin_delta` on `lv_scr_act()` — shows through
-  on both pages. Every plugin updates every tick regardless of visibility;
-  change-caches keep the off-screen page free. `kPluginMenu` stays last in
+  on every page. Every plugin updates every tick regardless of visibility;
+  change-caches keep off-screen pages free. `kPluginMenu` stays last in
   the registry (its panel must be created on top); the menu lives in tile 0
   only. Adding/removing a screen element = one registry line.
 - **`touch_input`** — CST9217 via SensorLib (`TouchDrvCST92xx`), registered
@@ -132,6 +139,14 @@ Never scale fonts with transform styles (see below).
   `[ui] max frame Nms over last 10s` every 10 s on serial.
 - The delta background flip has ±0.10 s hysteresis (`plugin_delta.cpp`) so a
   delta wobbling around zero doesn't repaint the whole screen every tick.
+- **Simple V-Sync**: the CO5300's tearing-effect output is wired to GPIO13
+  (schematic net `LCD_TE`); setup sends TEON (`0x35`, v-blank pulse mode),
+  verifies pulses arrive (`[main] TE pulses: N in 100ms` on serial) and the
+  flush then waits for the next v-blank before the FIRST chunk of each
+  refresh cycle (bounded 20 ms, disabled if TE is silent). Small updates
+  become tear-free; a full-screen update still spans >1 scan, but starting
+  phase-aligned turns random shear into one stable seam. A render/flush
+  overlap (async DMA) would be the next step if swipes still look rough.
 - The flush path is the fast big-endian one: `LV_COLOR_16_SWAP=1` +
   `draw16bitBeRGBBitmap` resolves to `writeBytes`, which DMAs straight out
   of the LVGL draw buffer (no per-pixel swap, no bounce copy), with 16 KB

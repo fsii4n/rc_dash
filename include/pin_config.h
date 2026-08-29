@@ -12,6 +12,9 @@
 #define LCD_SCLK 38
 #define LCD_RESET 1
 #define LCD_CS 12
+// Tearing-effect output (schematic net LCD_TE: U1 pin 18 / GPIO13). Pulses
+// each v-blank once the panel's TEON (0x35) command is sent.
+#define LCD_TE 13
 #define LCD_WIDTH 466
 #define LCD_HEIGHT 466
 

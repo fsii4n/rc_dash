@@ -19,10 +19,21 @@ enum DeltaTrend : uint8_t {
   TREND_LOSING,       // delta growing: losing time
 };
 
+// Completed laps kept for the lap-history page, most recent first.
+#define DASH_LAP_HISTORY 6
+
+struct LapRecord {
+  int32_t lapNumber;
+  int32_t timeDeci;  // s * 10
+};
+
 struct DashModel {
   int32_t values[RC_CH_COUNT];  // raw channel values, RC_INVALID_VALUE if unknown
   DeltaTrend trend;
   RcState state;
   PowerStatus power;
   bool touchLocked;  // physical lock button: UI ignores touch while set
+  LapRecord history[DASH_LAP_HISTORY];
+  uint8_t historyCount;
+  int32_t maxSpeedRaw;  // session max, m/s * 10, RC_INVALID_VALUE if none
 };

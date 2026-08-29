@@ -25,6 +25,12 @@ on the 466×466 round AMOLED. Kart-focused, delta-first, two swipeable pages:
 **Race page** (swipe left): just the essentials, huge — delta number (110px),
 background = delta sign, thick bezel ring = delta trend.
 
+**Predictive page**: predicted lap time (best + live delta), green while on
+course to beat the session best.
+
+**Lap history page**: the last 6 laps (session best in green), lap count and
+session max speed.
+
 **Controls**: PWR key hold 2 s = power off; BOOT key (5 o'clock) = touch
 lock on/off.
 

@@ -70,6 +70,42 @@ static DeltaTrend computeTrend(int32_t delta, uint32_t nowMs) {
   return TREND_FLAT;
 }
 
+// ---- session stats (lap history + max speed) -------------------------------
+
+static LapRecord sHistory[DASH_LAP_HISTORY];
+static uint8_t sHistoryCount = 0;
+static int32_t sMaxSpeed = RC_INVALID_VALUE;
+static int32_t sLastLapNumber = RC_INVALID_VALUE;
+
+static void updateSession(const RcSnapshot &snap) {
+  int32_t lap = snap.values[RC_CH_LAP_NUMBER];
+  int32_t prev = snap.values[RC_CH_PREV_LAP_TIME];
+  int32_t speed = snap.values[RC_CH_SPEED];
+
+  if (speed != RC_INVALID_VALUE &&
+      (sMaxSpeed == RC_INVALID_VALUE || speed > sMaxSpeed)) {
+    sMaxSpeed = speed;
+  }
+  if (lap == RC_INVALID_VALUE) return;
+
+  if (sLastLapNumber != RC_INVALID_VALUE && lap < sLastLapNumber) {
+    // Lap counter went backwards: new session started in RaceChrono.
+    sHistoryCount = 0;
+    sMaxSpeed = RC_INVALID_VALUE;
+  }
+  // On a lap increment the previous_lap_time channel carries the time of the
+  // lap that just finished (both arrive in the same 10 Hz packet).
+  if (sLastLapNumber != RC_INVALID_VALUE && lap > sLastLapNumber &&
+      prev != RC_INVALID_VALUE) {
+    memmove(&sHistory[1], &sHistory[0],
+            sizeof(LapRecord) * (DASH_LAP_HISTORY - 1));
+    sHistory[0].lapNumber = sLastLapNumber;
+    sHistory[0].timeDeci = prev;
+    if (sHistoryCount < DASH_LAP_HISTORY) sHistoryCount++;
+  }
+  sLastLapNumber = lap;
+}
+
 // ---- aggregation task ------------------------------------------------------
 
 static void dataTask(void *arg) {
@@ -81,6 +117,7 @@ static void dataTask(void *arg) {
     PowerStatus power;
     powerMonGet(power);
     DeltaTrend trend = computeTrend(snap.values[RC_CH_DELTA], millis());
+    updateSession(snap);
 
     portENTER_CRITICAL(&sLock);
     memcpy(sModel.values, snap.values, sizeof(sModel.values));
@@ -88,6 +125,9 @@ static void dataTask(void *arg) {
     sModel.state = snap.state;
     sModel.power = power;
     sModel.touchLocked = sTouchLocked;
+    memcpy(sModel.history, sHistory, sizeof(sModel.history));
+    sModel.historyCount = sHistoryCount;
+    sModel.maxSpeedRaw = sMaxSpeed;
     portEXIT_CRITICAL(&sLock);
 
     static uint32_t sLastStackReport = 0;

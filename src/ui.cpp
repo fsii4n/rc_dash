@@ -3,7 +3,7 @@
 // plugins exist, which page (tileview tile) each one lives on, and the order
 // they update in (delta owns the screen background, so it runs early).
 //
-// Two horizontally-swipeable pages:
+// Horizontally-swipeable pages (0..3):
 //   page 0 — the full kart dash, top to bottom:
 //     - outer ring ....... delta trend (green = gaining, red = losing)
 //     - battery .......... top of the dial
@@ -15,6 +15,8 @@
 //     - lock ............. touch-lock indicator (BOOT key toggles)
 //   page 1 — the race page: only the delta sign color (screen bg), the
 //     delta trend (thick bezel ring), and the delta number, huge.
+//   page 2 — predictive lap time (best + live delta) with the session best
+//   page 3 — lap history (last laps, best in green) + session stats
 #include "ui.h"
 
 #include "data_hub.h"
@@ -29,6 +31,8 @@ extern const UiPlugin kPluginStatus;
 extern const UiPlugin kPluginBattery;
 extern const UiPlugin kPluginLock;
 extern const UiPlugin kPluginRacePage;
+extern const UiPlugin kPluginPredictive;
+extern const UiPlugin kPluginLapHistory;
 extern const UiPlugin kPluginMenu;
 
 // Registry entry: which plugin, and which page (tile column) its objects are
@@ -44,10 +48,10 @@ struct PluginSlot {
 // and panel live inside tile 0, so the menu is only reachable from the dash
 // page — accepted for now.
 static const PluginSlot kSlots[] = {
-    {&kPluginTrendRing, 0}, {&kPluginDelta, 0},  {&kPluginLapTime, 0},
-    {&kPluginSpeed, 0},     {&kPluginLaps, 0},   {&kPluginStatus, 0},
-    {&kPluginBattery, 0},   {&kPluginLock, 0},   {&kPluginRacePage, 1},
-    {&kPluginMenu, 0},
+    {&kPluginTrendRing, 0},  {&kPluginDelta, 0},      {&kPluginLapTime, 0},
+    {&kPluginSpeed, 0},      {&kPluginLaps, 0},       {&kPluginStatus, 0},
+    {&kPluginBattery, 0},    {&kPluginLock, 0},       {&kPluginRacePage, 1},
+    {&kPluginPredictive, 2}, {&kPluginLapHistory, 3}, {&kPluginMenu, 0},
 };
 
 void uiCreate() {
@@ -63,9 +67,11 @@ void uiCreate() {
   lv_obj_set_style_bg_opa(tv, LV_OPA_TRANSP, 0);
   lv_obj_set_scrollbar_mode(tv, LV_SCROLLBAR_MODE_OFF);
 
-  lv_obj_t *tiles[2];
+  lv_obj_t *tiles[4];
   tiles[0] = lv_tileview_add_tile(tv, 0, 0, LV_DIR_HOR);  // dash
   tiles[1] = lv_tileview_add_tile(tv, 1, 0, LV_DIR_HOR);  // race page
+  tiles[2] = lv_tileview_add_tile(tv, 2, 0, LV_DIR_HOR);  // predictive lap
+  tiles[3] = lv_tileview_add_tile(tv, 3, 0, LV_DIR_HOR);  // lap history
   for (lv_obj_t *tile : tiles) lv_obj_set_style_bg_opa(tile, LV_OPA_TRANSP, 0);
 
   // Tiles are full-screen, so plugins' LV_ALIGN_CENTER offsets land exactly

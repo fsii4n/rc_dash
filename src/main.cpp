@@ -33,10 +33,31 @@ void displaySetBrightness(uint8_t value) {
 
 uint8_t displayGetBrightness() { return sBrightness; }
 
+// Set once TE pulses are confirmed at startup; the flush v-sync gates on it.
+static bool sTeOk = false;
+
+// Simple V-Sync: wait (bounded) for the panel's next v-blank TE pulse so the
+// write chases the scan instead of colliding with it mid-frame. Small
+// updates become tear-free; a full-screen update still takes longer than one
+// scan, but starting phase-aligned turns random shear lines into one stable
+// seam. Timeout keeps rendering alive if TE ever goes quiet.
+static void waitForVBlank() {
+  uint32_t t0 = micros();
+  while (digitalRead(LCD_TE) == HIGH && (uint32_t)(micros() - t0) < 20000) {
+  }
+  while (digitalRead(LCD_TE) == LOW && (uint32_t)(micros() - t0) < 20000) {
+  }
+}
+
 static void dispFlush(lv_disp_drv_t *disp, const lv_area_t *area,
                       lv_color_t *pixels) {
   uint32_t w = area->x2 - area->x1 + 1;
   uint32_t h = area->y2 - area->y1 + 1;
+  // V-sync only the first chunk of each refresh cycle; the following chunks
+  // of the same frame must go out back-to-back.
+  static bool sFirstChunk = true;
+  if (sFirstChunk && sTeOk) waitForVBlank();
+  sFirstChunk = lv_disp_flush_is_last(disp);
   // LV_COLOR_16_SWAP=1: LVGL renders big-endian RGB565, so this resolves to
   // Arduino_TFT::draw16bitBeRGBBitmap -> writeAddrWindow + bus writeBytes,
   // which DMAs straight out of the LVGL draw buffer (no per-pixel swap, no
@@ -98,6 +119,27 @@ void setup() {
   }
   gfx->fillScreen(RGB565_BLACK);
   gfx->setBrightness(sBrightness);
+
+  // Enable the panel's tearing-effect output (v-blank pulse mode) — the
+  // library's init sequence leaves TEON commented out — and verify pulses
+  // actually arrive on LCD_TE before letting the flush v-sync gate on them.
+  pinMode(LCD_TE, INPUT);
+  bus->beginWrite();
+  bus->writeC8D8(CO5300_WC_TEARON, 0x00);  // 0x00 = pulse on v-blank only
+  bus->endWrite();
+  {
+    int edges = 0;
+    bool last = digitalRead(LCD_TE);
+    uint32_t t0 = millis();
+    while (millis() - t0 < 100) {
+      bool now = digitalRead(LCD_TE);
+      if (now && !last) edges++;
+      last = now;
+    }
+    sTeOk = edges > 2;  // expect ~6 pulses in 100ms at 60Hz
+    Serial.printf("[main] TE pulses: %d in 100ms -> vsync %s\n", edges,
+                  sTeOk ? "on" : "off");
+  }
 
   lv_init();
 
