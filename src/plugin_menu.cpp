@@ -84,7 +84,7 @@ static void create(lv_obj_t *screen) {
 
   // Panel: dark rounded card, flex column so more rows slot in later.
   sPanel = lv_obj_create(screen);
-  lv_obj_set_size(sPanel, 340, 290);
+  lv_obj_set_size(sPanel, 370, 310);
   lv_obj_align(sPanel, LV_ALIGN_CENTER, 0, -10);
   lv_obj_set_style_bg_color(sPanel, panelBg, 0);
   lv_obj_set_style_bg_opa(sPanel, LV_OPA_COVER, 0);
@@ -101,13 +101,13 @@ static void create(lv_obj_t *screen) {
 
   // Row: "BRIGHTNESS" caption + live percent value.
   lv_obj_t *caption = lv_label_create(sPanel);
-  lv_obj_set_style_text_font(caption, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(caption, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(caption, COL_TEXT, 0);
   lv_label_set_text(caption, "BRIGHTNESS");
 
   uint8_t cur = displayGetBrightness();
   sValueLabel = lv_label_create(sPanel);
-  lv_obj_set_style_text_font(sValueLabel, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(sValueLabel, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(sValueLabel, COL_DIM, 0);
   char buf[8];
   snprintf(buf, sizeof(buf), "%d%%", (int)((cur * 100 + 127) / 255));
@@ -115,7 +115,7 @@ static void create(lv_obj_t *screen) {
 
   // Slider: 5..255 so the panel can never be turned fully dark.
   lv_obj_t *slider = lv_slider_create(sPanel);
-  lv_obj_set_size(slider, 260, 20);
+  lv_obj_set_size(slider, 290, 24);
   lv_slider_set_range(slider, 5, 255);
   lv_slider_set_value(slider, cur < 5 ? 5 : cur, LV_ANIM_OFF);
   lv_obj_set_style_bg_color(slider, lv_color_make(0x40, 0x40, 0x48),
@@ -126,21 +126,21 @@ static void create(lv_obj_t *screen) {
 
   // Close button.
   lv_obj_t *closeBtn = lv_btn_create(sPanel);
-  lv_obj_set_size(closeBtn, 140, 56);
+  lv_obj_set_size(closeBtn, 160, 60);
   lv_obj_set_style_bg_color(closeBtn, lv_color_make(0x40, 0x40, 0x48), 0);
   lv_obj_set_style_radius(closeBtn, 28, 0);
   lv_obj_add_event_cb(closeBtn, closeClickCb, LV_EVENT_CLICKED, nullptr);
   lv_obj_t *closeLabel = lv_label_create(closeBtn);
-  lv_obj_set_style_text_font(closeLabel, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(closeLabel, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(closeLabel, COL_TEXT, 0);
   lv_label_set_text(closeLabel, LV_SYMBOL_UP " CLOSE");
   lv_obj_center(closeLabel);
 
-  // Top-edge drag zone (invisible). Sized to the visible chord of the round
-  // display's top area; created last so it stays above the other plugins.
+  // Top-edge drag zone (invisible). Spans most of the panel's top edge;
+  // created last so it stays above the other plugins.
   sZone = lv_obj_create(screen);
   lv_obj_remove_style_all(sZone);
-  lv_obj_set_size(sZone, 240, 70);
+  lv_obj_set_size(sZone, 300, 70);
   lv_obj_align(sZone, LV_ALIGN_TOP_MID, 0, 0);
   lv_obj_add_flag(sZone, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_clear_flag(sZone, LV_OBJ_FLAG_SCROLLABLE);

@@ -1,20 +1,20 @@
-// Screen composition: the plugin registry. Each element of the 466x466
-// round AMOLED is a self-contained UiPlugin; this file only decides which
+// Screen composition: the plugin registry. Each element of the 410x502
+// AMOLED is a self-contained UiPlugin; this file only decides which
 // plugins exist, which page (tileview tile) each one lives on, and the order
 // they update in (delta owns the screen background, so it runs early).
 //
 // Horizontally-swipeable pages (0..3):
 //   page 0 — the full kart dash, top to bottom:
-//     - outer ring ....... delta trend (green = gaining, red = losing)
-//     - battery .......... top of the dial
-//     - speed ............ small km/h readout
+//     - border frame ..... delta trend (green = gaining, red = losing)
+//     - battery .......... top edge
+//     - speed ............ km/h readout
 //     - live delta ....... huge, screen bg green/red by its sign
 //     - current lap time . equal billing with the delta
 //     - prev/best row
 //     - status ........... lap number / connection state
 //     - lock ............. touch-lock indicator (BOOT key toggles)
 //   page 1 — the race page: only the delta sign color (screen bg), the
-//     delta trend (thick bezel ring), and the delta number, huge.
+//     delta trend (thick border frame), and the delta number, huge.
 //   page 2 — predictive lap time (best + live delta) with the session best
 //   page 3 — lap history (last laps, best in green) + session stats
 #include "ui.h"

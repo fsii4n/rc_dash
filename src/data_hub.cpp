@@ -12,7 +12,7 @@ static volatile bool sTouchLocked = false;
 void dataHubSetTouchLocked(bool locked) { sTouchLocked = locked; }
 bool dataHubGetTouchLocked() { return sTouchLocked; }
 
-// ---- touch-lock button (BOOT key, GPIO0, active low) -----------------------
+// ---- touch-lock button (BOOT key, GPIO9, active low) -----------------------
 
 // Debounced by the 50 ms task cadence: the raw level must read the same on
 // two consecutive polls (50-100 ms stable) before the state changes, and the

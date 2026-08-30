@@ -1,4 +1,4 @@
-// CST9217 touch controller (SensorLib TouchDrvCST92xx) + LVGL pointer indev.
+// FT3168 touch controller (direct I2C register polling) + LVGL pointer indev.
 //
 // Call touchInputInit() from setup() after lv_init() and display driver
 // registration (the indev attaches to the default display) and BEFORE the
@@ -10,5 +10,5 @@
 // swallows all touches.
 #pragma once
 
-// Returns true if the CST9217 was found and the LVGL indev registered.
+// Returns true if the FT3168 was found and the LVGL indev registered.
 bool touchInputInit();

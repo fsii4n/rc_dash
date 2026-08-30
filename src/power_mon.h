@@ -1,7 +1,7 @@
 // AXP2101 PMIC monitor: battery gauge + power key handling.
 //
-// The board's PWR button is wired to the AXP2101 PWRON pin (see
-// docs/ESP32-S3-Touch-AMOLED-1.75C-schematic.pdf). Power-on is handled in
+// The board's PWR button is wired to the AXP2101 PWRON pin (see the board
+// schematic in Waveshare's repo). Power-on is handled in
 // hardware by the PMIC; this module adds the software side:
 //   - polls the fuel gauge over I2C (percent, voltage, charging state)
 //   - a short press of the PWR button triggers a clean shutdown

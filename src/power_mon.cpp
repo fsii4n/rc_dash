@@ -22,8 +22,8 @@ static void powerTask(void *arg) {
   for (;;) {
     PowerStatus s;
     s.pmicOk = true;
-    // The CST9217 touch driver reads the same Wire bus from core 1: every
-    // PMIC transaction must hold the shared bus mutex.
+    // The FT3168 touch driver reads the same Wire bus from the LVGL task:
+    // every PMIC transaction must hold the shared bus mutex.
     i2cBusLock();
     s.battConnected = sPmu.isBatteryConnect();
     s.percent = s.battConnected ? sPmu.getBatteryPercent() : -1;

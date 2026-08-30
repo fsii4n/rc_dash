@@ -1,6 +1,6 @@
 # RaceChrono AMOLED Monitor — PoC
 
-Firmware for the [Waveshare ESP32-S3-Touch-AMOLED-1.75C](https://www.waveshare.net/shop/ESP32-S3-Touch-AMOLED-1.75C.htm)
+Firmware for the [Waveshare ESP32-C6-Touch-AMOLED-2.06](https://www.waveshare.com/esp32-c6-touch-amoled-2.06.htm)
 that turns it into a wireless lap-timing display.
 
 ```
@@ -10,20 +10,20 @@ VBOX Sport ──Bluetooth SPP──▶ phone (RaceChrono) ──BLE──▶ th
 The board advertises as a **RaceChrono DIY** BLE device (service `0x1ff8`).
 RaceChrono connects, the firmware registers monitor channels (GPS speed +
 lap timing), and RaceChrono streams the values, which are rendered with LVGL
-on the 466×466 round AMOLED. Kart-focused, delta-first, two swipeable pages:
+on the 410×502 AMOLED. Kart-focused, delta-first, swipeable pages:
 
 **Dash page**
-- big live delta readout (72px); full-screen background green when faster
+- big live delta readout (110px); full-screen background green when faster
   than the comparison lap, red when slower
-- outer ring colored by the delta *trend* (green = gaining time, red =
+- border frame colored by the delta *trend* (green = gaining time, red =
   losing time) — independent of the delta's sign
-- current lap time (equal billing with the delta)
-- small km/h readout, previous / best lap times (color-coded, no labels)
+- current lap time (72px, equal billing with the delta)
+- km/h readout, previous / best lap times (color-coded, no labels)
 - lap number & connection status, battery, touch-lock indicator
 - pull-down menu (drag from top): screen brightness
 
 **Race page** (swipe left): just the essentials, huge — delta number (110px),
-background = delta sign, thick bezel ring = delta trend.
+background = delta sign, thick border frame = delta trend.
 
 **Predictive page**: predicted lap time (best + live delta), green while on
 course to beat the session best.
@@ -39,8 +39,9 @@ lock on/off.
 Uses the [pioarduino](https://github.com/pioarduino/platform-espressif32) fork
 of `platform-espressif32` (Arduino core 3.x / ESP-IDF 5.x — the official
 PlatformIO platform is frozen at core 2.x). FreeRTOS is the native ESP32
-Arduino runtime; the firmware runs LVGL as a task pinned to core 1 and the
-NimBLE host + RaceChrono config task on core 0.
+Arduino runtime; the C6 is single-core, so the LVGL render task, the NimBLE
+host and the RaceChrono config task all share core 0 (LVGL at the highest
+priority).
 
 ```sh
 pio run                 # build
@@ -71,6 +72,7 @@ the `data_hub` task (core 0) produce a `DashModel`; the LVGL render task
 | File | Purpose |
 | --- | --- |
 | `src/main.cpp` | display bring-up (Arduino_GFX CO5300 over QSPI), LVGL init, render task |
+| `src/touch_input.*` | FT3168 touch (direct I2C register polling) → LVGL indev |
 | `src/rc_monitor.*` | RaceChrono DIY monitor BLE peripheral (NimBLE), channel config handshake |
 | `src/power_mon.*` | AXP2101 PMIC: battery gauge polling + power-key shutdown |
 | `src/data_hub.*` | data task (core 0): BLE + PMIC → `DashModel`, derives delta trend |
@@ -109,9 +111,9 @@ The PWR button is wired to the AXP2101's PWRON pin (see the schematic in
 
 - **Power off**: short-press the PWR button → clean AXP2101 shutdown (all
   rails cut). Press PWR again to boot.
-- **Battery**: percent + charge state shown at the top of the dial,
-  color-coded (green charging, amber <30%, red <15%; USB icon when running
-  without a battery).
+- **Battery**: percent + charge state shown at the top edge, color-coded
+  (green charging, amber <30%, red <15%; USB icon when running without a
+  battery).
 
 ## Next steps (not in the PoC)
 
@@ -122,7 +124,7 @@ The PWR button is wired to the AXP2101's PWRON pin (see the schematic in
 ## References
 
 - RaceChrono DIY BLE protocol: <https://github.com/aollin/racechrono-ble-diy-device>
-- Board examples & pinout: <https://github.com/waveshareteam/ESP32-S3-Touch-AMOLED-1.75C>
+- Board examples & pinout: <https://github.com/waveshareteam/ESP32-C6-Touch-AMOLED-2.06>
 
 ## Test rig
 

@@ -1,5 +1,5 @@
-// Shared I2C bus arbitration. The AXP2101 PMIC (power_mon task, core 0) and
-// the CST9217 touch controller (LVGL indev read, core 1) share one Wire bus,
+// Shared I2C bus arbitration. The AXP2101 PMIC (power_mon task) and the
+// FT3168 touch controller (LVGL indev read) share one Wire bus,
 // and Wire is not thread-safe: every I2C transaction must happen inside
 // i2cBusLock()/i2cBusUnlock(). Keep hold times short — a handful of register
 // reads, never a vTaskDelay.

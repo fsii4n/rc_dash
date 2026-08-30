@@ -1,27 +1,28 @@
-// Outer ring plugin: full circle hugging the bezel, colored by the delta
-// trend — green while gaining time on the comparison lap, red while losing.
+// Outer frame plugin: rounded-rect border hugging the screen edge, colored
+// by the delta trend — green while gaining time on the comparison lap, red
+// while losing. (The 410x502 panel is rectangular, so the old bezel arc
+// became a border frame.)
 #include "render_color.h"
 #include "ui_plugin.h"
 
 static lv_obj_t *sRing;
 
 static void create(lv_obj_t *screen) {
-  sRing = lv_arc_create(screen);
-  lv_obj_set_size(sRing, 456, 456);
+  sRing = lv_obj_create(screen);
+  lv_obj_remove_style_all(sRing);
+  lv_obj_set_size(sRing, 410, 502);
   lv_obj_center(sRing);
-  lv_arc_set_bg_angles(sRing, 0, 360);
-  lv_obj_remove_style(sRing, NULL, LV_PART_KNOB);
-  lv_obj_remove_style(sRing, NULL, LV_PART_INDICATOR);
+  lv_obj_set_style_radius(sRing, 48, 0);
+  lv_obj_set_style_border_width(sRing, 14, 0);
+  lv_obj_set_style_border_color(sRing, colorTrendRing(TREND_INVALID), 0);
   lv_obj_clear_flag(sRing, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_set_style_arc_width(sRing, 20, LV_PART_MAIN);
-  lv_obj_set_style_arc_color(sRing, colorTrendRing(TREND_INVALID), LV_PART_MAIN);
 }
 
 static void update(const DashModel &m) {
   static DeltaTrend lastTrend = TREND_INVALID;
   if (m.trend == lastTrend) return;
   lastTrend = m.trend;
-  lv_obj_set_style_arc_color(sRing, colorTrendRing(m.trend), LV_PART_MAIN);
+  lv_obj_set_style_border_color(sRing, colorTrendRing(m.trend), 0);
 }
 
 extern const UiPlugin kPluginTrendRing = {"trend_ring", create, update};

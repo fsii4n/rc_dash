@@ -13,24 +13,24 @@ static lv_obj_t *sStats;
 
 static void create(lv_obj_t *screen) {
   sTitle = lv_label_create(screen);
-  lv_obj_set_style_text_font(sTitle, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(sTitle, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(sTitle, COL_DIM, 0);
   lv_label_set_text(sTitle, "LAPS");
-  lv_obj_align(sTitle, LV_ALIGN_CENTER, 0, -160);
+  lv_obj_align(sTitle, LV_ALIGN_CENTER, 0, -205);
 
   for (int i = 0; i < DASH_LAP_HISTORY; i++) {
     sRows[i] = lv_label_create(screen);
-    lv_obj_set_style_text_font(sRows[i], &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_font(sRows[i], &lv_font_montserrat_36, 0);
     lv_obj_set_style_text_color(sRows[i], COL_TEXT, 0);
     lv_label_set_text(sRows[i], "");
-    lv_obj_align(sRows[i], LV_ALIGN_CENTER, 0, -115 + i * 45);
+    lv_obj_align(sRows[i], LV_ALIGN_CENTER, 0, -140 + i * 52);
   }
 
   sStats = lv_label_create(screen);
-  lv_obj_set_style_text_font(sStats, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(sStats, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(sStats, COL_DIM, 0);
   lv_label_set_text(sStats, "");
-  lv_obj_align(sStats, LV_ALIGN_CENTER, 0, 168);
+  lv_obj_align(sStats, LV_ALIGN_CENTER, 0, 190);
 }
 
 static void update(const DashModel &m) {

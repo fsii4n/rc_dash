@@ -1,4 +1,4 @@
-// RaceChrono BLE monitor display — PoC for Waveshare ESP32-S3-Touch-AMOLED-1.75C
+// RaceChrono BLE monitor display — PoC for Waveshare ESP32-C6-Touch-AMOLED-2.06
 //
 // Data path: VBOX Sport --SPP--> phone (RaceChrono) --BLE--> this board.
 // The board advertises as a "RaceChrono DIY" device; RaceChrono pushes the
@@ -21,7 +21,7 @@ static Arduino_DataBus *bus = new Arduino_ESP32QSPI(
 
 static Arduino_CO5300 *gfx = new Arduino_CO5300(
     bus, LCD_RESET, 0 /* rotation */, LCD_WIDTH, LCD_HEIGHT,
-    6 /* col offset 1 */, 0, 0, 0);
+    LCD_COL_OFFSET /* col offset 1 */, 0, 0, 0);
 
 static lv_disp_draw_buf_t sDrawBuf;
 static uint8_t sBrightness = 200;
@@ -33,31 +33,12 @@ void displaySetBrightness(uint8_t value) {
 
 uint8_t displayGetBrightness() { return sBrightness; }
 
-// Set once TE pulses are confirmed at startup; the flush v-sync gates on it.
-static bool sTeOk = false;
-
-// Simple V-Sync: wait (bounded) for the panel's next v-blank TE pulse so the
-// write chases the scan instead of colliding with it mid-frame. Small
-// updates become tear-free; a full-screen update still takes longer than one
-// scan, but starting phase-aligned turns random shear lines into one stable
-// seam. Timeout keeps rendering alive if TE ever goes quiet.
-static void waitForVBlank() {
-  uint32_t t0 = micros();
-  while (digitalRead(LCD_TE) == HIGH && (uint32_t)(micros() - t0) < 20000) {
-  }
-  while (digitalRead(LCD_TE) == LOW && (uint32_t)(micros() - t0) < 20000) {
-  }
-}
-
+// No TE-based v-sync on this board: the panel's TE output is not routed to
+// a usable GPIO (see pin_config.h). Flushes go out unsynchronized.
 static void dispFlush(lv_disp_drv_t *disp, const lv_area_t *area,
                       lv_color_t *pixels) {
   uint32_t w = area->x2 - area->x1 + 1;
   uint32_t h = area->y2 - area->y1 + 1;
-  // V-sync only the first chunk of each refresh cycle; the following chunks
-  // of the same frame must go out back-to-back.
-  static bool sFirstChunk = true;
-  if (sFirstChunk && sTeOk) waitForVBlank();
-  sFirstChunk = lv_disp_flush_is_last(disp);
   // LV_COLOR_16_SWAP=1: LVGL renders big-endian RGB565, so this resolves to
   // Arduino_TFT::draw16bitBeRGBBitmap -> writeAddrWindow + bus writeBytes,
   // which DMAs straight out of the LVGL draw buffer (no per-pixel swap, no
@@ -75,8 +56,10 @@ static void dispRounder(lv_disp_drv_t *disp, lv_area_t *area) {
   if (area->y2 % 2 == 0) area->y2++;
 }
 
-// LVGL render task, pinned to core 1. Pure consumer: pulls the DashModel
-// the data hub task (core 0) publishes and drives the UI plugins. All LVGL
+// LVGL render task. The C6 is single-core, so this shares core 0 with the
+// data hub / BLE / power tasks; priorities (LVGL 4 > rc 3 > hub/pwr 2) plus
+// the vTaskDelay yields keep everyone fed. Pure consumer: pulls the
+// DashModel the data hub task publishes and drives the UI plugins. All LVGL
 // calls happen on this task (touch/slider callbacks run inside
 // lv_timer_handler here too) — display actions from other tasks must go
 // through DashModel, never call LVGL directly.
@@ -120,39 +103,30 @@ void setup() {
   gfx->fillScreen(RGB565_BLACK);
   gfx->setBrightness(sBrightness);
 
-  // Enable the panel's tearing-effect output (v-blank pulse mode) — the
-  // library's init sequence leaves TEON commented out — and verify pulses
-  // actually arrive on LCD_TE before letting the flush v-sync gate on them.
-  pinMode(LCD_TE, INPUT);
-  bus->beginWrite();
-  bus->writeC8D8(CO5300_WC_TEARON, 0x00);  // 0x00 = pulse on v-blank only
-  bus->endWrite();
-  {
-    int edges = 0;
-    bool last = digitalRead(LCD_TE);
-    uint32_t t0 = millis();
-    while (millis() - t0 < 100) {
-      bool now = digitalRead(LCD_TE);
-      if (now && !last) edges++;
-      last = now;
-    }
-    sTeOk = edges > 2;  // expect ~6 pulses in 100ms at 60Hz
-    Serial.printf("[main] TE pulses: %d in 100ms -> vsync %s\n", edges,
-                  sTeOk ? "on" : "off");
-  }
-
   lv_init();
 
-  // Two quarter-screen buffers in internal DMA-capable RAM.
-  size_t bufPixels = LCD_WIDTH * LCD_HEIGHT / 4;
-  lv_color_t *buf1 = (lv_color_t *)heap_caps_malloc(
-      bufPixels * sizeof(lv_color_t), MALLOC_CAP_DMA);
-  lv_color_t *buf2 = (lv_color_t *)heap_caps_malloc(
-      bufPixels * sizeof(lv_color_t), MALLOC_CAP_DMA);
+  // Double draw buffer. No PSRAM on the C6 and only 512KB of SRAM shared
+  // with NimBLE, so start at 1/8 screen per buffer (~51KB each) and halve
+  // until the pair fits. All C6 internal RAM is DMA-capable.
+  size_t bufPixels = LCD_WIDTH * LCD_HEIGHT / 8;
+  lv_color_t *buf1 = nullptr, *buf2 = nullptr;
+  while (bufPixels >= (size_t)LCD_WIDTH * 8) {
+    buf1 = (lv_color_t *)heap_caps_malloc(bufPixels * sizeof(lv_color_t),
+                                          MALLOC_CAP_DMA);
+    buf2 = (lv_color_t *)heap_caps_malloc(bufPixels * sizeof(lv_color_t),
+                                          MALLOC_CAP_DMA);
+    if (buf1 && buf2) break;
+    if (buf1) heap_caps_free(buf1);
+    if (buf2) heap_caps_free(buf2);
+    buf1 = buf2 = nullptr;
+    bufPixels /= 2;
+  }
   if (!buf1) {
     Serial.println("[main] draw buffer alloc failed!");
     for (;;) delay(1000);
   }
+  Serial.printf("[main] draw buffers: 2 x %u px (%u lines)\n",
+                (unsigned)bufPixels, (unsigned)(bufPixels / LCD_WIDTH));
   lv_disp_draw_buf_init(&sDrawBuf, buf1, buf2, bufPixels);
 
   static lv_disp_drv_t dispDrv;
@@ -175,7 +149,7 @@ void setup() {
   rcMonitorStart();
   dataHubStart();
 
-  xTaskCreatePinnedToCore(lvglTask, "lvgl", 8192, nullptr, 4, nullptr, 1);
+  xTaskCreatePinnedToCore(lvglTask, "lvgl", 8192, nullptr, 4, nullptr, 0);
 }
 
 void loop() {

@@ -1,7 +1,7 @@
 // The dashboard's data model: everything the UI renders, in one struct.
 //
-// Produced by the data hub task (core 0), consumed by the render task
-// (core 1). UI plugins only ever see this struct — they know nothing about
+// Produced by the data hub task, consumed by the render task.
+// UI plugins only ever see this struct — they know nothing about
 // BLE, the PMIC, or how derived values are computed.
 #pragma once
 

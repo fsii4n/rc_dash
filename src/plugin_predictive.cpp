@@ -2,7 +2,8 @@
 // (best lap + live delta — RaceChrono's comparison lap is the session best),
 // green while on course to beat the best, red otherwise. Same idea as the
 // MyChron "theoretical" recall and RaceChrono's Predictive Lap Timer, but
-// live on its own page.
+// live on its own page. The predicted time uses the 110pt digits-only font:
+// "8:88.8" is ~334px wide, inside the 410px panel.
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -10,7 +11,7 @@
 #include "render_num.h"
 #include "ui_plugin.h"
 
-LV_FONT_DECLARE(font_montserrat_num_72);
+LV_FONT_DECLARE(font_montserrat_num_110);
 
 static lv_obj_t *sCaption;
 static lv_obj_t *sPredicted;
@@ -18,22 +19,22 @@ static lv_obj_t *sBest;
 
 static void create(lv_obj_t *screen) {
   sCaption = lv_label_create(screen);
-  lv_obj_set_style_text_font(sCaption, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(sCaption, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(sCaption, COL_DIM, 0);
   lv_label_set_text(sCaption, "PREDICTED");
-  lv_obj_align(sCaption, LV_ALIGN_CENTER, 0, -110);
+  lv_obj_align(sCaption, LV_ALIGN_CENTER, 0, -150);
 
   sPredicted = lv_label_create(screen);
-  lv_obj_set_style_text_font(sPredicted, &font_montserrat_num_72, 0);
+  lv_obj_set_style_text_font(sPredicted, &font_montserrat_num_110, 0);
   lv_obj_set_style_text_color(sPredicted, COL_DIM, 0);
   lv_label_set_text(sPredicted, "-:--.-");
-  lv_obj_align(sPredicted, LV_ALIGN_CENTER, 0, -25);
+  lv_obj_align(sPredicted, LV_ALIGN_CENTER, 0, -30);
 
   sBest = lv_label_create(screen);
-  lv_obj_set_style_text_font(sBest, &lv_font_montserrat_32, 0);
+  lv_obj_set_style_text_font(sBest, &lv_font_montserrat_36, 0);
   lv_obj_set_style_text_color(sBest, COL_GOOD, 0);
   lv_label_set_text(sBest, "BEST -:--.-");
-  lv_obj_align(sBest, LV_ALIGN_CENTER, 0, 70);
+  lv_obj_align(sBest, LV_ALIGN_CENTER, 0, 90);
 }
 
 static void update(const DashModel &m) {
